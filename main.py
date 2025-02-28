@@ -11,7 +11,7 @@ from transformers import pipeline
 classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
 def classify_tweet(text):
-    categories = ["healthy lifestyle", "unhealthy lifestyle"]
+    categories = ["healthy habit", "unhealthy habit"]
     result = classifier(text, candidate_labels=categories)
     return result["labels"][0]  # Returns "healthy lifestyle" or "unhealthy lifestyle"
 
@@ -54,11 +54,11 @@ async def main():
     # Create CSV files
     with open('tweets.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Tweet_count', 'Username', 'Text', 'Created At', 'Retweets', 'Likes', 'Hashtags', 'Image URL', 'Category'])
+        writer.writerow(['Tweet_count', 'Username', 'Text', 'Created At', 'Retweets', 'Likes','Replies', 'Hashtags', 'Image URL', 'Category'])
 
     with open('replies.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Tweet Text', 'Category', 'Reply Text', 'Reply Likes', 'Reply Reposts'])
+        writer.writerow(['Tweet Text', 'Category','Username', 'Reply Text', 'Reply Likes', 'Reply Reposts'])
 
     # Authenticate
     client = Client(language='en-US')
@@ -106,7 +106,7 @@ async def main():
                 # Save tweet data
                 tweet_data = [
                     tweet_count, tweet.user.name, tweet.text, tweet.created_at, tweet.retweet_count,
-                    tweet.favorite_count, ', '.join(hashtags), image_url if image_url else 'N/A', category
+                    tweet.favorite_count,reply_count, ', '.join(hashtags), image_url if image_url else 'N/A', category
                 ]
 
                 with open('tweets.csv', 'a', newline='') as file:
@@ -117,13 +117,14 @@ async def main():
                 replies = await get_replies(tweet.id, client)
 
                 for reply in replies:
+                    reply_username = reply.user.name
                     reply_text = reply.text
                     reply_likes = reply.favorite_count
                     reply_reposts = reply.retweet_count
 
                     # Save reply data to the new CSV file
                     reply_data = [
-                        tweet.text, category, reply_text, reply_likes, reply_reposts
+                        tweet.text, category,reply_username, reply_text, reply_likes, reply_reposts
                     ]
 
                     with open('replies.csv', 'a', newline='') as file:
