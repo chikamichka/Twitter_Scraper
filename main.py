@@ -1,5 +1,4 @@
 from twikit import Client, TooManyRequests
-import time
 import asyncio
 from datetime import datetime
 import csv
@@ -17,10 +16,11 @@ def classify_tweet(text):
 
 
 # Constants
-MINIMUM_TWEETS = 100
+MINIMUM_TWEETS = 20
 QUERY = '("#food" OR "#diet" OR "#nutrition") lang:en -filter:retweets since:2020-01-01 until:2025-12-31'
-RETWEET_THRESHOLD = 2
+
 LIKE_THRESHOLD = 10
+RETWEET_THRESHOLD = 2
 REPLY_THRESHOLD = 5  # Set the reply threshold to filter tweets with fewer replies
 
 
@@ -38,7 +38,7 @@ async def get_tweets(tweets, client):
 
 
 async def get_replies(tweet_id, client):
-    # This function gets replies for a specific tweet
+    print(f'{datetime.now()} - Fetching replies...')
     replies = await client.search_tweet(f'conversation_id:{tweet_id}', product='Top')
     return replies
 
@@ -54,11 +54,11 @@ async def main():
     # Create CSV files
     with open('tweets.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Tweet_count', 'Username', 'Text', 'Created At', 'Retweets', 'Likes','Replies', 'Hashtags', 'Image URL', 'Category'])
+        writer.writerow(['Tweet_count', 'Username', 'Text', 'Created At', 'Retweets', 'Likes', 'Replies', 'Hashtags', 'Image URL', 'Category'])
 
     with open('replies.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Tweet Text', 'Category','Username', 'Reply Text', 'Reply Likes', 'Reply Reposts'])
+        writer.writerow(['Tweet Text', 'Category', 'Username', 'Reply Text', 'Reply Likes', 'Reply Reposts'])
 
     # Authenticate
     client = Client(language='en-US')
@@ -83,8 +83,8 @@ async def main():
             break
 
         for tweet in tweets:
-            # Apply popularity filter
-            if tweet.retweet_count >= RETWEET_THRESHOLD or tweet.favorite_count >= LIKE_THRESHOLD or tweet.reply_count >= REPLY_THRESHOLD:
+            # Apply popularity filter and ensure tweet has fewer than 20 replies
+            if tweet.retweet_count >= RETWEET_THRESHOLD and tweet.favorite_count >= LIKE_THRESHOLD and tweet.reply_count <= 20:
                 tweet_count += 1
 
                 # Extract hashtags
@@ -106,7 +106,7 @@ async def main():
                 # Save tweet data
                 tweet_data = [
                     tweet_count, tweet.user.name, tweet.text, tweet.created_at, tweet.retweet_count,
-                    tweet.favorite_count,reply_count, ', '.join(hashtags), image_url if image_url else 'N/A', category
+                    tweet.favorite_count, reply_count, ', '.join(hashtags), image_url if image_url else 'N/A', category
                 ]
 
                 with open('tweets.csv', 'a', newline='') as file:
@@ -124,12 +124,15 @@ async def main():
 
                     # Save reply data to the new CSV file
                     reply_data = [
-                        tweet.text, category,reply_username, reply_text, reply_likes, reply_reposts
+                        tweet.text, category, reply_username, reply_text, reply_likes, reply_reposts
                     ]
 
                     with open('replies.csv', 'a', newline='') as file:
                         writer = csv.writer(file)
                         writer.writerow(reply_data)
+
+                # Wait before processing the next tweet (to avoid rate limiting)
+                await asyncio.sleep(randint(5, 20))
 
         print(f'{datetime.now()} - Collected {tweet_count} tweets')
 
